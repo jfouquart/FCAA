@@ -1,0 +1,1 @@
+It is a modified version of Timothy Lottes' PC FXAA algorithm designed to preserve overall sharpness of the input image while being resource-efficient and providing a visually pleasing aliased result.

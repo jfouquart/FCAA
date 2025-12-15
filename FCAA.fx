@@ -30,10 +30,6 @@ namespace FCAA {
 /*============================================================================
 		SETTINGS
 ============================================================================*/
-uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.0; ui_max = 1.0;
-	ui_tooltip = "Amount of sub-pixel aliasing removal. Higher values makes the image softer/blurrier";
-> = 0.75;
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
@@ -71,16 +67,15 @@ sampler2D BackBuffer
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define texLuma(tex, pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
-#define texLumaOff(tex, pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
+#define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
+#define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-float4 FCAA(sampler tex,float2 texcoord) {
-	float2 posM = texcoord;
-	float lumaM = texLuma(tex, posM);
-	float lumaS = texLumaOff(tex, posM, int2( 0, 1));
-	float lumaE = texLumaOff(tex, posM, int2( 1, 0));
-	float lumaN = texLumaOff(tex, posM, int2( 0,-1));
-	float lumaW = texLumaOff(tex, posM, int2(-1, 0));
+float4 FCAA(sampler tex,float2 posM) {
+	float lumaM = texLuma(posM);
+	float lumaS = texLumaOff(posM, int2( 0, 1));
+	float lumaE = texLumaOff(posM, int2( 1, 0));
+	float lumaN = texLumaOff(posM, int2( 0,-1));
+	float lumaW = texLumaOff(posM, int2(-1, 0));
 /*--------------------------------------------------------------------------*/
 	float rangeMax = max(max(lumaN, lumaW), max(lumaE, max(lumaS, lumaM)));
 	float rangeMin = min(min(lumaN, lumaW), min(lumaE, min(lumaS, lumaM)));
@@ -96,10 +91,10 @@ float4 FCAA(sampler tex,float2 texcoord) {
 	if(midRangePix || earlyExit)
 		discard;
 /*--------------------------------------------------------------------------*/
-	float lumaNW = texLumaOff(tex, posM, int2(-1,-1));
-	float lumaSE = texLumaOff(tex, posM, int2( 1, 1));
-	float lumaNE = texLumaOff(tex, posM, int2( 1,-1));
-	float lumaSW = texLumaOff(tex, posM, int2(-1, 1));
+	float lumaNW = texLumaOff(posM, int2(-1,-1));
+	float lumaSE = texLumaOff(posM, int2( 1, 1));
+	float lumaNE = texLumaOff(posM, int2( 1,-1));
+	float lumaSW = texLumaOff(posM, int2(-1, 1));
 /*--------------------------------------------------------------------------*/
 	float lumaNS = lumaN + lumaS;
 	float lumaWE = lumaW + lumaE;
@@ -119,7 +114,6 @@ float4 FCAA(sampler tex,float2 texcoord) {
 /*--------------------------------------------------------------------------*/
 	float lengthSign = BUFFER_PIXEL_SIZE.x;
 	bool horzSpan = edgeHorz >= edgeVert;
-/*--------------------------------------------------------------------------*/
 	if(!horzSpan) lumaN = lumaW;
 	if(!horzSpan) lumaS = lumaE;
 	if( horzSpan) lengthSign = BUFFER_PIXEL_SIZE.y;
@@ -153,17 +147,17 @@ float4 FCAA(sampler tex,float2 texcoord) {
 	bool doneP = false;
 	for(int i = 0; (i < MaxSearchSteps) && (!doneN || !doneP); ++i) {
 		if(!doneN) posN -= offNP * 2.0;
-		if(!doneN) lumaEndN = texLuma(tex, posN);
+		if(!doneN) lumaEndN = texLuma(posN);
 		if(!doneN) lumaEndN -= lumaNN * 0.5;
 		doneN = abs(lumaEndN) >= gradientScaled;
 		if(!doneP) posP += offNP * 2.0;
-		if(!doneP) lumaEndP = texLuma(tex, posP);
+		if(!doneP) lumaEndP = texLuma(posP);
 		if(!doneP) lumaEndP -= lumaNN * 0.5;
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
 /*--------------------------------------------------------------------------*/
-	float adjN = abs(abs(lumaEndN) - gradientScaled) >= 0.25 ? -0.5 : 0.5;
-	float adjP = abs(abs(lumaEndP) - gradientScaled) >= 0.25 ? -0.5 : 0.5;
+    float adjN = (abs(lumaEndN) < gradient * 0.4) ? 0.5 : -0.5;
+	float adjP = (abs(lumaEndP) < gradient * 0.4) ? 0.5 : -0.5;
 	posN -= offNP * adjN;
 	posP += offNP * adjP;
 	float dstN = posM.x - posN.x;
@@ -179,37 +173,15 @@ float4 FCAA(sampler tex,float2 texcoord) {
 	bool directionN = dstN < dstP;
 	float dst = min(dstN, dstP);
 	bool goodSpan = directionN ? goodSpanN : goodSpanP;
-	float pixelOffsetSubpix;
-	[flatten]
-	if (spanLength >= dot(5.0, offNP))
-	{
+	float pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
 /*--------------------------------------------------------------------------*/
-		float pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
-		float2 posB = directionN ? posN : posP;
-		if (!horzSpan) posB.x -= lengthSign;
-		if ( horzSpan) posB.y -= lengthSign;
+	float2 posB = directionN ? posN : posP;
+	if (!horzSpan) posB.x -= lengthSign;
+	if ( horzSpan) posB.y -= lengthSign;
+	float lumaB = texLuma(posB);
+	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientScaled * 1.75);
 /*--------------------------------------------------------------------------*/
-		float lumaB = texLuma(tex, posB);
-		goodSpan = goodSpan && abs(lumaB - lumaNN * 0.5) < gradientScaled * 1.5;
-		pixelOffsetSubpix = goodSpan ? pixelOffset : 0.0;
-	}
-	else
-	{
-/*--------------------------------------------------------------------------*/
-		float subpixRcpRange = 1.0/range;
-		float subpixNSWE = lumaNS + lumaWE;
-		float subpixNWSWNESE = lumaNWSW + lumaNESE;
-		float subpixA = subpixNSWE * 2.0 + subpixNWSWNESE;
-/*--------------------------------------------------------------------------*/
-		float subpixB = (subpixA * (1.0/12.0)) - lumaM;
-		float subpixC = saturate(abs(subpixB) * subpixRcpRange);
-		float subpixD = ((-2.0)*subpixC) + 3.0;
-		float subpixE = subpixC * subpixC;
-/*--------------------------------------------------------------------------*/
-		float subpixF = subpixD * subpixE;
-		float subpixG = subpixF * subpixF;
-		pixelOffsetSubpix = subpixG * Subpix;
-	}
+	float pixelOffsetSubpix = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 

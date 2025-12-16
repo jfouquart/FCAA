@@ -161,11 +161,12 @@ float4 FCAA(sampler tex,float2 posM) {
 	float adjP = (abs(lumaEndP) < gradientLimit) ? 0.5 : -0.5;
 	posN -= offNP * adjN;
 	posP += offNP * adjP;
+/*--------------------------------------------------------------------------*/
 	float dstN = posM.x - posN.x;
 	float dstP = posP.x - posM.x;
-/*--------------------------------------------------------------------------*/
 	if(!horzSpan) dstN = posM.y - posN.y;
 	if(!horzSpan) dstP = posP.y - posM.y;
+/*--------------------------------------------------------------------------*/
 	bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
 	float spanLength = (dstP + dstN);
 	bool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
@@ -189,7 +190,7 @@ float4 FCAA(sampler tex,float2 posM) {
 	return float4(tex2Dlod(tex, float4(posM, 0, 0)).rgb, lumaM);
 }
 
-float4 CXAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
+float4 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	return FCAA(BackBuffer, texcoord);
 }
 
@@ -217,7 +218,7 @@ technique FCAA  <
 	}
 	pass {
 		VertexShader = PostProcessVS;
-		PixelShader = CXAAPS;
+		PixelShader = FCAAPS;
 	}
 }
 

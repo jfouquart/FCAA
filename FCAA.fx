@@ -156,8 +156,9 @@ float4 FCAA(sampler tex,float2 posM) {
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
 /*--------------------------------------------------------------------------*/
-    float adjN = (abs(lumaEndN) < gradient * 0.4) ? 0.5 : -0.5;
-	float adjP = (abs(lumaEndP) < gradient * 0.4) ? 0.5 : -0.5;
+	float gradientLimit = gradientScaled * 1.75;
+	float adjN = (abs(lumaEndN) < gradientLimit) ? 0.5 : -0.5;
+	float adjP = (abs(lumaEndP) < gradientLimit) ? 0.5 : -0.5;
 	posN -= offNP * adjN;
 	posP += offNP * adjP;
 	float dstN = posM.x - posN.x;
@@ -179,7 +180,7 @@ float4 FCAA(sampler tex,float2 posM) {
 	if (!horzSpan) posB.x -= lengthSign;
 	if ( horzSpan) posB.y -= lengthSign;
 	float lumaB = texLuma(posB);
-	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientScaled * 1.75);
+	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientLimit);
 /*--------------------------------------------------------------------------*/
 	float pixelOffsetSubpix = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;

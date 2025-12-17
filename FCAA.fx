@@ -208,10 +208,14 @@ void PostProcessVS(in uint id : SV_VertexID, out float4 position : SV_Position, 
 technique FCAA
 <
     ui_label = "FCAA";
-	ui_tooltip = "- Fast Conservative Anti-Aliasing -\n"
-	"It is a modified version of Timothy Lottes' PC FXAA algorithm "
-	"designed to preserve overall sharpness of the input image "
-	"while being resource-efficient and providing a visually pleasing aliased result.\n"
+	ui_tooltip =
+	"                      Fast Conservative Anti-Aliasing                       \n"
+	"____________________________________________________________________________\n"
+	"\n"
+	"It is a modified version of Timothy Lottes' PC FXAA algorithm designed to   \n"
+	"preserve overall sharpness of the input image while being resource-efficient\n"
+	"and providing a visually pleasing aliased result.                           \n"
+	"\n"
 	"by jfouquart";
 >
 {

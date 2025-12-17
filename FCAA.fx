@@ -31,12 +31,12 @@ namespace FCAA {
 		SETTINGS
 ============================================================================*/
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.0; ui_max = 1.0;
+	ui_min = 0.0; ui_max = 0.5;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "The minimum amount of local contrast required to apply algorithm.";
 > = 0.166;
 uniform float EdgeThresholdMin < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.0; ui_max = 1.0;
+	ui_min = 0.0; ui_max = 0.1;
 	ui_label = "Darkness Threshold";
 	ui_tooltip = "Pixels darker than this are not processed in order to increase performance.";
 > = 0.0833;
@@ -205,11 +205,15 @@ void PostProcessVS(in uint id : SV_VertexID, out float4 position : SV_Position, 
 	position = float4(texcoord * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
 }
 
-technique FCAA  <
-	ui_tooltip = "It is a modified version of Timothy Lottes' PC FXAA algorithm "
+technique FCAA
+<
+    ui_label = "FCAA";
+	ui_tooltip = "- Fast Conservative Anti-Aliasing -\n"
+	"It is a modified version of Timothy Lottes' PC FXAA algorithm "
 	"designed to preserve overall sharpness of the input image "
 	"while being resource-efficient and providing a visually pleasing aliased result.\n"
-	"by jfouquart";>
+	"by jfouquart";
+>
 {
 	pass {
 		VertexShader = PostProcessVS;

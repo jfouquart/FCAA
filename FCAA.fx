@@ -156,7 +156,7 @@ float4 FCAA(sampler tex,float2 posM) {
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
 /*--------------------------------------------------------------------------*/
-	float gradientLimit = gradientScaled * 1.75;
+	float gradientLimit = gradientScaled * 1.80;
 	float adjN = (abs(lumaEndN) < gradientLimit) ? 0.5 : -0.5;
 	float adjP = (abs(lumaEndP) < gradientLimit) ? 0.5 : -0.5;
 	posN -= offNP * adjN;
@@ -181,11 +181,11 @@ float4 FCAA(sampler tex,float2 posM) {
 	if (!horzSpan) posB.x -= lengthSign;
 	if ( horzSpan) posB.y -= lengthSign;
 	float lumaB = texLuma(posB);
-	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientLimit);
+	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientScaled);
 /*--------------------------------------------------------------------------*/
-	float pixelOffsetSubpix = goodSpan ? pixelOffset : 0.0;
-	if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
-	if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
+	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
+	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
+	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
 
 	return float4(tex2Dlod(tex, float4(posM, 0, 0)).rgb, lumaM);
 }
@@ -207,7 +207,7 @@ void PostProcessVS(in uint id : SV_VertexID, out float4 position : SV_Position, 
 
 technique FCAA
 <
-    ui_label = "FCAA";
+	ui_label = "FCAA";
 	ui_tooltip =
 	"                      Fast Conservative Anti-Aliasing                       \n"
 	"____________________________________________________________________________\n"

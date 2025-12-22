@@ -70,7 +70,7 @@ sampler2D BackBuffer
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-float4 FCAA(sampler tex,float2 posM) {
+float3 FCAA(sampler tex,float2 posM) {
 	float lumaM = texLuma(posM);
 	float lumaS = texLumaOff(posM, int2( 0, 1));
 	float lumaE = texLumaOff(posM, int2( 1, 0));
@@ -180,17 +180,16 @@ float4 FCAA(sampler tex,float2 posM) {
 	float2 posB = directionN ? posN : posP;
 	if (!horzSpan) posB.x -= lengthSign;
 	if ( horzSpan) posB.y -= lengthSign;
-	float lumaB = texLuma(posB);
-	goodSpan = goodSpan && (abs(lumaB - lumaNN * 0.5) < gradientScaled);
+	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientScaled);
 /*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
 
-	return float4(tex2Dlod(tex, float4(posM, 0, 0)).rgb, lumaM);
+	return float3(tex2Dlod(tex, float4(posM, 0, 0)).rgb);
 }
 
-float4 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
+float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	return FCAA(BackBuffer, texcoord);
 }
 

@@ -70,7 +70,7 @@ sampler2D BackBuffer
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-float3 FCAA(sampler tex,float2 posM) {
+float3 FCAA(float2 posM) {
 	float lumaM = texLuma(posM);
 	float lumaS = texLumaOff(posM, int2( 0, 1));
 	float lumaE = texLumaOff(posM, int2( 1, 0));
@@ -137,7 +137,7 @@ float3 FCAA(sampler tex,float2 posM) {
 	posP -= offNP * 0.5;
 /*--------------------------------------------------------------------------*/
 	if(!pairN) lumaNN = lumaSS;
-	float gradientScaled = gradient * 1.0/4.0;
+	float gradientScaled = gradient * 0.20;
 	float lumaMM = lumaM - lumaNN * 0.5;
 	bool lumaMLTZero = lumaMM < 0.0;
 /*--------------------------------------------------------------------------*/
@@ -156,7 +156,7 @@ float3 FCAA(sampler tex,float2 posM) {
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
 /*--------------------------------------------------------------------------*/
-	float gradientLimit = gradientScaled * 1.80;
+	float gradientLimit = gradient * 0.45;
 	float adjN = (abs(lumaEndN) < gradientLimit) ? 0.5 : -0.5;
 	float adjP = (abs(lumaEndP) < gradientLimit) ? 0.5 : -0.5;
 	posN -= offNP * adjN;
@@ -186,15 +186,16 @@ float3 FCAA(sampler tex,float2 posM) {
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
 
-	return float3(tex2Dlod(tex, float4(posM, 0, 0)).rgb);
+	return tex2Dlod(BackBuffer, float4(posM, 0, 0)).rgb;
 }
 
 float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
-	return FCAA(BackBuffer, texcoord);
+	return FCAA(texcoord);
 }
 
 float LumaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
-	return (dot(tex2Dlod(BackBuffer, float4(texcoord, 0, 0)).rgb, float3(0.299, 0.587, 0.114)));
+	float3 c = tex2Dlod(BackBuffer, float4(texcoord, 0, 0)).rgb;
+	return dot(c, float3(0.299, 0.587, 0.114));
 }
 
 // Vertex shader generating a triangle covering the entire screen

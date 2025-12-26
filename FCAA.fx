@@ -180,7 +180,8 @@ float3 FCAA(float2 posM) {
 	float2 posB = directionN ? posN : posP;
 	if (!horzSpan) posB.x -= lengthSign;
 	if ( horzSpan) posB.y -= lengthSign;
-	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientScaled);
+	float gradientMid = 0.5 * (gradientLimit + gradientScaled);
+	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientMid);
 /*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
@@ -195,7 +196,8 @@ float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 
 float LumaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	float3 c = tex2Dlod(BackBuffer, float4(texcoord, 0, 0)).rgb;
-	return dot(c, float3(0.299, 0.587, 0.114));
+	float lumaC = dot(c, float3(0.299, 0.587, 0.114));
+	return sqrt(lumaC); // little trick to virtually increase the brightness
 }
 
 // Vertex shader generating a triangle covering the entire screen

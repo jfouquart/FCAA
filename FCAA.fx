@@ -132,14 +132,12 @@ float3 FCAA(float2 posM) {
 	offNP.y = ( horzSpan) ? 0.0 : BUFFER_PIXEL_SIZE.y;
 	if(!horzSpan) posN.x += lengthSign * 0.5;
 	if( horzSpan) posN.y += lengthSign * 0.5;
+/*--------------------------------------------------------------------------*/
 	float2 posP = posN;
 	posN += offNP * 0.5;
 	posP -= offNP * 0.5;
-/*--------------------------------------------------------------------------*/
 	if(!pairN) lumaNN = lumaSS;
 	float gradientScaled = gradient * 0.20;
-	float lumaMM = lumaM - lumaNN * 0.5;
-	bool lumaMLTZero = lumaMM < 0.0;
 /*--------------------------------------------------------------------------*/
 	float lumaEndP;
 	float lumaEndN;
@@ -166,6 +164,8 @@ float3 FCAA(float2 posM) {
 	float dstP = posP.x - posM.x;
 	if(!horzSpan) dstN = posM.y - posN.y;
 	if(!horzSpan) dstP = posP.y - posM.y;
+	float lumaMM = lumaM - lumaNN * 0.5;
+	bool lumaMLTZero = lumaMM < 0.0;
 /*--------------------------------------------------------------------------*/
 	bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
 	float spanLength = (dstP + dstN);

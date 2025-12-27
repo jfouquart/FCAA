@@ -133,17 +133,20 @@ float3 FCAA(float2 posM) {
 	if(!horzSpan) posN.x += lengthSign * 0.5;
 	if( horzSpan) posN.y += lengthSign * 0.5;
 /*--------------------------------------------------------------------------*/
-	float2 posP = posN;
-	posN += offNP * 0.5;
-	posP -= offNP * 0.5;
 	if(!pairN) lumaNN = lumaSS;
-	float gradientScaled = gradient * 0.20;
+	float gradientScaled = gradient * 0.275;
+	float2 posP = posN;
+	posN -= offNP;
+	posP += offNP;
 /*--------------------------------------------------------------------------*/
-	float lumaEndP;
-	float lumaEndN;
-	bool doneN = false;
-	bool doneP = false;
-	for(int i = 0; (i < MaxSearchSteps) && (!doneN || !doneP); ++i) {
+	float lumaEndN = texLuma(posN) - lumaNN * 0.5;
+	float lumaEndP = texLuma(posP) - lumaNN * 0.5;
+	bool doneN = abs(lumaEndN) >= gradientScaled;
+	bool doneP = abs(lumaEndP) >= gradientScaled;
+	if(!doneN) posN += offNP * 0.5;
+	if(!doneP) posP -= offNP * 0.5;
+/*--------------------------------------------------------------------------*/
+	for(int i = 1; (i < MaxSearchSteps) && (!doneN || !doneP); ++i) {
 		if(!doneN) posN -= offNP * 2.0;
 		if(!doneN) lumaEndN = texLuma(posN);
 		if(!doneN) lumaEndN -= lumaNN * 0.5;
@@ -153,12 +156,6 @@ float3 FCAA(float2 posM) {
 		if(!doneP) lumaEndP -= lumaNN * 0.5;
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
-/*--------------------------------------------------------------------------*/
-	float gradientLimit = gradient * 0.45;
-	float adjN = (abs(lumaEndN) < gradientLimit) ? 0.5 : -0.5;
-	float adjP = (abs(lumaEndP) < gradientLimit) ? 0.5 : -0.5;
-	posN -= offNP * adjN;
-	posP += offNP * adjP;
 /*--------------------------------------------------------------------------*/
 	float dstN = posM.x - posN.x;
 	float dstP = posP.x - posM.x;
@@ -175,14 +172,21 @@ float3 FCAA(float2 posM) {
 	bool directionN = dstN < dstP;
 	float dst = min(dstN, dstP);
 	bool goodSpan = directionN ? goodSpanN : goodSpanP;
+/*--------------------------------------------------------------------------*/
+	float2 posB = posP;
+	float offB = (dst > max(offNP.x,offNP.y)) ? 0.5 : 0.0;
+	float lumaEnd = lumaEndP;
+	if(directionN) posB = posN;
+	if(directionN) offB = -offB;
+	if(directionN) lumaEnd = lumaEndN;
+/*--------------------------------------------------------------------------*/
+	if(lumaEnd > gradient) offB = -offB;
+	if(!horzSpan) posB.x -= lengthSign;
+	if( horzSpan) posB.y -= lengthSign;
+	posB += offB * offNP;
+	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientScaled);
+/*--------------------------------------------------------------------------*/
 	float pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
-/*--------------------------------------------------------------------------*/
-	float2 posB = directionN ? posN : posP;
-	if (!horzSpan) posB.x -= lengthSign;
-	if ( horzSpan) posB.y -= lengthSign;
-	float gradientMid = 0.5 * (gradientLimit + gradientScaled);
-	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientMid);
-/*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
@@ -196,8 +200,7 @@ float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 
 float LumaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	float3 c = tex2Dlod(BackBuffer, float4(texcoord, 0, 0)).rgb;
-	float lumaC = dot(c, float3(0.299, 0.587, 0.114));
-	return sqrt(lumaC); // little trick to virtually increase the brightness
+	return dot(c, float3(0.299, 0.587, 0.114));
 }
 
 // Vertex shader generating a triangle covering the entire screen

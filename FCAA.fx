@@ -180,7 +180,7 @@ float3 FCAA(float2 posM) {
 	if(directionN) offB = -offB;
 	if(directionN) lumaEnd = lumaEndN;
 /*--------------------------------------------------------------------------*/
-	if(lumaEnd > gradient) offB = -offB;
+	if(abs(lumaEnd) >= gradient * 0.55) offB = -offB;
 	if(!horzSpan) posB.x -= lengthSign;
 	if( horzSpan) posB.y -= lengthSign;
 	posB += offB * offNP;

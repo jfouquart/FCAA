@@ -134,13 +134,14 @@ float3 FCAA(float2 posM) {
 	if( horzSpan) posN.y += lengthSign * 0.5;
 /*--------------------------------------------------------------------------*/
 	if(!pairN) lumaNN = lumaSS;
-	float gradientScaled = gradient * 0.275;
+	float lumaMN = lumaNN * 0.5;
+	float gradientScaled = gradient * 0.25;
 	float2 posP = posN;
 	posN -= offNP;
 	posP += offNP;
 /*--------------------------------------------------------------------------*/
-	float lumaEndN = texLuma(posN) - lumaNN * 0.5;
-	float lumaEndP = texLuma(posP) - lumaNN * 0.5;
+	float lumaEndN = texLuma(posN) - lumaMN;
+	float lumaEndP = texLuma(posP) - lumaMN;
 	bool doneN = abs(lumaEndN) >= gradientScaled;
 	bool doneP = abs(lumaEndP) >= gradientScaled;
 	if(!doneN) posN += offNP * 0.5;
@@ -149,11 +150,11 @@ float3 FCAA(float2 posM) {
 	for(int i = 1; (i < MaxSearchSteps) && (!doneN || !doneP); ++i) {
 		if(!doneN) posN -= offNP * 2.0;
 		if(!doneN) lumaEndN = texLuma(posN);
-		if(!doneN) lumaEndN -= lumaNN * 0.5;
+		if(!doneN) lumaEndN -= lumaMN;
 		doneN = abs(lumaEndN) >= gradientScaled;
 		if(!doneP) posP += offNP * 2.0;
 		if(!doneP) lumaEndP = texLuma(posP);
-		if(!doneP) lumaEndP -= lumaNN * 0.5;
+		if(!doneP) lumaEndP -= lumaMN;
 		doneP = abs(lumaEndP) >= gradientScaled;
 	}
 /*--------------------------------------------------------------------------*/
@@ -161,31 +162,31 @@ float3 FCAA(float2 posM) {
 	float dstP = posP.x - posM.x;
 	if(!horzSpan) dstN = posM.y - posN.y;
 	if(!horzSpan) dstP = posP.y - posM.y;
-	float lumaMM = lumaM - lumaNN * 0.5;
+	float lumaMM = lumaM - lumaMN;
 	bool lumaMLTZero = lumaMM < 0.0;
-/*--------------------------------------------------------------------------*/
-	bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
-	float spanLength = (dstP + dstN);
-	bool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
-	float spanLengthRcp = 1.0/spanLength;
 /*--------------------------------------------------------------------------*/
 	bool directionN = dstN < dstP;
 	float dst = min(dstN, dstP);
+	bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
+	bool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
 	bool goodSpan = directionN ? goodSpanN : goodSpanP;
 /*--------------------------------------------------------------------------*/
 	float2 posB = posP;
-	float offB = (dst > max(offNP.x,offNP.y)) ? 0.5 : 0.0;
+	float off = max(offNP.x,offNP.y);
+	float offB = (dst / off > 1.75) ? 0.5 : 0.0;
 	float lumaEnd = lumaEndP;
 	if(directionN) posB = posN;
 	if(directionN) offB = -offB;
 	if(directionN) lumaEnd = lumaEndN;
 /*--------------------------------------------------------------------------*/
-	if(abs(lumaEnd) >= gradient * 0.55) offB = -offB;
+	if(abs(lumaEnd) >= gradient * 0.5) offB = -offB;
 	if(!horzSpan) posB.x -= lengthSign;
 	if( horzSpan) posB.y -= lengthSign;
 	posB += offB * offNP;
-	goodSpan = goodSpan && (abs(texLuma(posB) - lumaNN * 0.5) < gradientScaled);
+	goodSpan = goodSpan && (abs(texLuma(posB) - lumaMN) < gradientScaled);
 /*--------------------------------------------------------------------------*/
+	float spanLength = (dstP + dstN + off);
+	float spanLengthRcp = 1.0/spanLength;
 	float pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;

@@ -70,7 +70,8 @@ sampler2D BackBuffer
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-float3 FCAA(float2 posM) {
+int SpanProp(float2 posM) {
+#if 1
 	float lumaM = texLuma(posM);
 	float lumaS = texLumaOff(posM, int2( 0, 1));
 	float lumaE = texLumaOff(posM, int2( 1, 0));
@@ -89,7 +90,7 @@ float3 FCAA(float2 posM) {
 	bool earlyExit = range < rangeMaxClamped;
 /*--------------------------------------------------------------------------*/
 	if(midRangePix || earlyExit)
-		discard;
+		return 0;
 /*--------------------------------------------------------------------------*/
 	float lumaNW = texLumaOff(posM, int2(-1,-1));
 	float lumaSE = texLumaOff(posM, int2( 1, 1));
@@ -111,12 +112,50 @@ float3 FCAA(float2 posM) {
 		abs(lumaSWSE - 2.0 * lumaS) +
 		abs(lumaWE   - 2.0 * lumaM) * 2.0 +
 		abs(lumaNWNE - 2.0 * lumaN);
+
+	return (edgeHorz >= edgeVert) ? 1 : 2;
+#else
+/*----------------------------------------------------------------------------
+	FAAA edge detection algorithm, catch less edge but is a way more faster.
+----------------------------------------------------------------------------*/
+    float lumaNW = texLumaOff(posM, int2(-1,-1));
+	float lumaSE = texLumaOff(posM, int2( 1, 1));
+	float lumaNE = texLumaOff(posM, int2( 1,-1));
+	float lumaSW = texLumaOff(posM, int2(-1, 1));
+/*----------------------------------------------------------------------------
+	Edge detection. This does much better than a head-on luma delta.
+----------------------------------------------------------------------------*/
+	float gradientSWNE = lumaSW - lumaNE;
+	float gradientSENW = lumaSE - lumaNW;
+	float2 dirM;
+	dirM.x = abs(gradientSWNE + gradientSENW);
+	dirM.y = abs(gradientSWNE - gradientSENW);
 /*--------------------------------------------------------------------------*/
-	float lengthSign = BUFFER_PIXEL_SIZE.x;
-	bool horzSpan = edgeHorz >= edgeVert;
-	if(!horzSpan) lumaN = lumaW;
-	if(!horzSpan) lumaS = lumaE;
-	if( horzSpan) lengthSign = BUFFER_PIXEL_SIZE.y;
+	float lumaMax = max(max(lumaSW, lumaSE), max(lumaNE, lumaNW));
+	float localLumaFactor = lumaMax * 0.5 + 0.5;
+	float localThres = EdgeThreshold * localLumaFactor;
+	bool lowDelta = abs(dirM.x - dirM.y) < localThres;
+/*--------------------------------------------------------------------------*/
+	if(lowDelta) return 0;
+
+	return (dirM.x > dirM.y) ? 1 : 2;
+#endif
+}
+
+float3 FCAA(float2 posM) {
+	float lumaM = texLuma(posM);
+	int spanPropM = SpanProp(posM);
+/*--------------------------------------------------------------------------*/
+	if (spanPropM == 0)
+	    discard;
+/*--------------------------------------------------------------------------*/
+	bool horzSpan = spanPropM == 1;
+	float lengthSign = BUFFER_PIXEL_SIZE.y;
+	float lumaN = texLumaOff(posM, int2( 0,-1));
+	float lumaS = texLumaOff(posM, int2( 0, 1));
+	if(!horzSpan) lengthSign = BUFFER_PIXEL_SIZE.x;
+	if(!horzSpan) lumaN = texLumaOff(posM, int2(-1, 0));
+	if(!horzSpan) lumaS = texLumaOff(posM, int2( 1, 0));
 /*--------------------------------------------------------------------------*/
 	float gradientN = lumaN - lumaM;
 	float gradientS = lumaS - lumaM;
@@ -179,15 +218,16 @@ float3 FCAA(float2 posM) {
 	if(directionN) offB = -offB;
 	if(directionN) lumaEnd = lumaEndN;
 /*--------------------------------------------------------------------------*/
-	if(abs(lumaEnd) >= gradient * 0.5) offB = -offB;
-	if(!horzSpan) posB.x -= lengthSign;
-	if( horzSpan) posB.y -= lengthSign;
+    bool beyondSpan = abs(lumaEnd) > gradient * 0.5;
+	if(beyondSpan) offB = -offB;
+	if(!horzSpan) posB.x -= lengthSign * 0.5;
+	if( horzSpan) posB.y -= lengthSign * 0.5;
 	posB += offB * offNP;
-	goodSpan = goodSpan && (abs(texLuma(posB) - lumaMN) < gradientScaled);
+	if(goodSpan) goodSpan = (SpanProp(posB) == spanPropM);
 /*--------------------------------------------------------------------------*/
 	float spanLength = (dstP + dstN + off);
-	float spanLengthRcp = 1.0/spanLength;
-	float pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
+	float pixelOffset = (-dst / spanLength) + 0.5;
+/*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
@@ -211,8 +251,7 @@ void PostProcessVS(in uint id : SV_VertexID, out float4 position : SV_Position, 
 	position = float4(texcoord * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
 }
 
-technique FCAA
-<
+technique FCAA <
 	ui_label = "FCAA";
 	ui_tooltip =
 	"                      Fast Conservative Anti-Aliasing                       \n"
@@ -223,8 +262,7 @@ technique FCAA
 	"and providing a visually pleasing aliased result.                           \n"
 	"\n"
 	"by jfouquart";
->
-{
+> {
 	pass {
 		VertexShader = PostProcessVS;
 		PixelShader = LumaPS;

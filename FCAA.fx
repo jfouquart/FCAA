@@ -189,23 +189,23 @@ float3 FCAA(float2 posM) {
 	bool goodSpan = directionN ? goodSpanN : goodSpanP;
 /*--------------------------------------------------------------------------*/
 	float2 posB = posP;
-	float off = max(offNP.x,offNP.y);
-	float offB = (dst / off > 1.75) ? 0.5 : 0.0;
+	float offB = 0.5;
 	float lumaEnd = lumaEndP;
 	if(directionN) posB = posN;
 	if(directionN) offB = -offB;
 	if(directionN) lumaEnd = lumaEndN;
 /*--------------------------------------------------------------------------*/
+	float off = max(offNP.x,offNP.y);
+	bool longDst = (dst / off) > 1.75;
     bool beyondSpan = abs(lumaEnd) > gradient * 0.5;
 	if(beyondSpan) offB = -offB;
-	if(!horzSpan) posB.x -= lengthSign * 0.5;
-	if( horzSpan) posB.y -= lengthSign * 0.5;
-	posB += offB * offNP;
+	if(!horzSpan) posB.x = posM.x;
+	if( horzSpan) posB.y = posM.y;
+	if(longDst) posB += offB * offNP;
 	if(goodSpan) goodSpan = (SpanProp(posB) == spanPropM);
 /*--------------------------------------------------------------------------*/
 	float spanLength = (dstP + dstN + off);
 	float pixelOffset = (-dst / spanLength) + 0.5;
-/*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;

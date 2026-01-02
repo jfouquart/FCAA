@@ -202,9 +202,10 @@ float3 FCAA(float2 posM) {
 	if(!horzSpan) posB.x = posM.x;
 	if( horzSpan) posB.y = posM.y;
 	if(longDst) posB += offB * offNP;
-	if(goodSpan) goodSpan = (SpanProp(posB) == spanPropM);
 /*--------------------------------------------------------------------------*/
 	float spanLength = (dstP + dstN + off);
+	bool shortSpan = (spanLength / off) <= 5.0;
+	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB) == spanPropM);
 	float pixelOffset = (-dst / spanLength) + 0.5;
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;

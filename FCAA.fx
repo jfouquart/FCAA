@@ -71,7 +71,6 @@ sampler2D BackBuffer
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
 int SpanProp(float2 posM) {
-#if 1
 	float lumaM = texLuma(posM);
 	float lumaS = texLumaOff(posM, int2( 0, 1));
 	float lumaE = texLumaOff(posM, int2( 1, 0));
@@ -114,40 +113,19 @@ int SpanProp(float2 posM) {
 		abs(lumaNWNE - 2.0 * lumaN);
 
 	return (edgeHorz >= edgeVert) ? 1 : 2;
-#else
-/*----------------------------------------------------------------------------
-	FAAA edge detection algorithm, catch less edge but is a way more faster.
-----------------------------------------------------------------------------*/
-    float lumaNW = texLumaOff(posM, int2(-1,-1));
-	float lumaSE = texLumaOff(posM, int2( 1, 1));
-	float lumaNE = texLumaOff(posM, int2( 1,-1));
-	float lumaSW = texLumaOff(posM, int2(-1, 1));
-/*----------------------------------------------------------------------------
-	Edge detection. This does much better than a head-on luma delta.
-----------------------------------------------------------------------------*/
-	float gradientSWNE = lumaSW - lumaNE;
-	float gradientSENW = lumaSE - lumaNW;
-	float2 dirM;
-	dirM.x = abs(gradientSWNE + gradientSENW);
-	dirM.y = abs(gradientSWNE - gradientSENW);
-/*--------------------------------------------------------------------------*/
-	float lumaMax = max(max(lumaSW, lumaSE), max(lumaNE, lumaNW));
-	float localLumaFactor = lumaMax * 0.5 + 0.5;
-	float localThres = EdgeThreshold * localLumaFactor;
-	bool lowDelta = abs(dirM.x - dirM.y) < localThres;
-/*--------------------------------------------------------------------------*/
-	if(lowDelta) return 0;
-
-	return (dirM.x > dirM.y) ? 1 : 2;
-#endif
 }
 
 float3 FCAA(float2 posM) {
 	float lumaM = texLuma(posM);
 	int spanPropM = SpanProp(posM);
 /*--------------------------------------------------------------------------*/
+#if 0
+	if (spanPropM == 0) return lumaM.xxx;
+	else return float3(0,1,0);
+#else
 	if (spanPropM == 0)
-	    discard;
+		discard;
+#endif
 /*--------------------------------------------------------------------------*/
 	bool horzSpan = spanPropM == 1;
 	float lengthSign = BUFFER_PIXEL_SIZE.y;

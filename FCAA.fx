@@ -121,7 +121,7 @@ float3 FCAA(float2 posM) {
 /*--------------------------------------------------------------------------*/
 #if 0
 	if (spanPropM == 0) return lumaM.xxx;
-	else return float3(0,1,0);
+	else return float3(lumaM * (spanPropM == 1), lumaM * (spanPropM == 2), 0);
 #else
 	if (spanPropM == 0)
 		discard;
@@ -205,8 +205,10 @@ float3 FCAA(float2 posM) {
 /*--------------------------------------------------------------------------*/
 	float spanLength = (dstP + dstN + off);
 	bool shortSpan = (spanLength / off) <= 5.0;
-	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB) == spanPropM);
 	float pixelOffset = (-dst / spanLength) + 0.5;
+	goodSpan = goodSpan && pixelOffset > 0.0;
+	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB) == spanPropM);
+/*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;

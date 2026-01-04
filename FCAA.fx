@@ -112,7 +112,7 @@ int SpanProp(float2 posM) {
 		abs(lumaWE   - 2.0 * lumaM) * 2.0 +
 		abs(lumaNWNE - 2.0 * lumaN);
 
-	return (edgeHorz >= edgeVert) ? 1 : 2;
+	return 1 + (edgeHorz < edgeVert);
 }
 
 float3 FCAA(float2 posM) {
@@ -120,8 +120,9 @@ float3 FCAA(float2 posM) {
 	int spanPropM = SpanProp(posM);
 /*--------------------------------------------------------------------------*/
 #if 0
+	#define _FCAA_LUMA(good) ((0.10 + (lumaM * 0.90)) * (good))
 	if (spanPropM == 0) return lumaM.xxx;
-	else return float3(lumaM * (spanPropM == 1), lumaM * (spanPropM == 2), 0);
+	else return float3(_FCAA_LUMA(spanPropM == 1), _FCAA_LUMA(spanPropM == 2), 0);
 #else
 	if (spanPropM == 0)
 		discard;

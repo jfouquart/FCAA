@@ -70,12 +70,28 @@ sampler2D BackBuffer
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-int SpanProp(float2 posM) {
-	float lumaM = texLuma(posM);
-	float lumaS = texLumaOff(posM, int2( 0, 1));
-	float lumaE = texLumaOff(posM, int2( 1, 0));
-	float lumaN = texLumaOff(posM, int2( 0,-1));
-	float lumaW = texLumaOff(posM, int2(-1, 0));
+void SampleLuma3x3(float2 posM, out float3 row0, out float3 row1, out float3 row2)
+{
+    row0.x = texLumaOff(posM, int2(-1, -1)); // NW
+    row0.y = texLumaOff(posM, int2( 0, -1)); // N
+    row0.z = texLumaOff(posM, int2( 1, -1)); // NE
+/*--------------------------------------------------------------------------*/
+    row1.x = texLumaOff(posM, int2(-1,  0)); // W
+    row1.y = texLuma(posM);                  // M
+    row1.z = texLumaOff(posM, int2( 1,  0)); // E
+/*--------------------------------------------------------------------------*/
+    row2.x = texLumaOff(posM, int2(-1,  1)); // SW
+    row2.y = texLumaOff(posM, int2( 0,  1)); // S
+    row2.z = texLumaOff(posM, int2( 1,  1)); // SE
+}
+
+int SpanPropFromGrid(float3 row0, float3 row1, float3 row2)
+{
+	float lumaM = row1.y;
+	float lumaN = row0.y;
+	float lumaS = row2.y;
+	float lumaE = row1.z;
+	float lumaW = row1.x;
 /*--------------------------------------------------------------------------*/
 	float rangeMax = max(max(lumaN, lumaW), max(lumaE, max(lumaS, lumaM)));
 	float rangeMin = min(min(lumaN, lumaW), min(lumaE, min(lumaS, lumaM)));
@@ -91,10 +107,10 @@ int SpanProp(float2 posM) {
 	if(midRangePix || earlyExit)
 		return 0;
 /*--------------------------------------------------------------------------*/
-	float lumaNW = texLumaOff(posM, int2(-1,-1));
-	float lumaSE = texLumaOff(posM, int2( 1, 1));
-	float lumaNE = texLumaOff(posM, int2( 1,-1));
-	float lumaSW = texLumaOff(posM, int2(-1, 1));
+	float lumaNW = row0.x;
+	float lumaSE = row2.z;
+	float lumaNE = row0.z;
+	float lumaSW = row2.x;
 /*--------------------------------------------------------------------------*/
 	float lumaNS = lumaN + lumaS;
 	float lumaWE = lumaW + lumaE;
@@ -115,9 +131,18 @@ int SpanProp(float2 posM) {
 	return 1 + (edgeHorz < edgeVert);
 }
 
+int SpanProp(float2 posM) {
+	float3 r0, r1, r2;
+	SampleLuma3x3(posM, r0, r1, r2);
+	return SpanPropFromGrid(r0, r1, r2);
+}
+
 float3 FCAA(float2 posM) {
-	float lumaM = texLuma(posM);
-	int spanPropM = SpanProp(posM);
+	float3 r0, r1, r2;
+	SampleLuma3x3(posM, r0, r1, r2);
+
+	float lumaM = r1.y;
+	int spanPropM = SpanPropFromGrid(r0, r1, r2);
 /*--------------------------------------------------------------------------*/
 #if 0
 	#define _FCAA_LUMA(good) ((0.10 + (lumaM * 0.90)) * (good))
@@ -130,11 +155,11 @@ float3 FCAA(float2 posM) {
 /*--------------------------------------------------------------------------*/
 	bool horzSpan = spanPropM == 1;
 	float lengthSign = BUFFER_PIXEL_SIZE.y;
-	float lumaN = texLumaOff(posM, int2( 0,-1));
-	float lumaS = texLumaOff(posM, int2( 0, 1));
+	float lumaN = r0.y;
+	float lumaS = r2.y;
 	if(!horzSpan) lengthSign = BUFFER_PIXEL_SIZE.x;
-	if(!horzSpan) lumaN = texLumaOff(posM, int2(-1, 0));
-	if(!horzSpan) lumaS = texLumaOff(posM, int2( 1, 0));
+	if(!horzSpan) lumaN = r1.x; // W
+	if(!horzSpan) lumaS = r1.z; // E
 /*--------------------------------------------------------------------------*/
 	float gradientN = lumaN - lumaM;
 	float gradientS = lumaS - lumaM;
@@ -144,10 +169,10 @@ float3 FCAA(float2 posM) {
 	float gradient = max(abs(gradientN), abs(gradientS));
 	if(pairN) lengthSign = -lengthSign;
 /*--------------------------------------------------------------------------*/
-	float2 posN = posM;
 	float2 offNP;
 	offNP.x = (!horzSpan) ? 0.0 : BUFFER_PIXEL_SIZE.x;
 	offNP.y = ( horzSpan) ? 0.0 : BUFFER_PIXEL_SIZE.y;
+	float2 posN = posM;
 	if(!horzSpan) posN.x += lengthSign * 0.5;
 	if( horzSpan) posN.y += lengthSign * 0.5;
 /*--------------------------------------------------------------------------*/
@@ -198,7 +223,7 @@ float3 FCAA(float2 posM) {
 /*--------------------------------------------------------------------------*/
 	float off = max(offNP.x,offNP.y);
 	bool longDst = (dst / off) > 1.75;
-    bool beyondSpan = abs(lumaEnd) > gradient * 0.5;
+	bool beyondSpan = abs(lumaEnd) > gradient * 0.5;
 	if(beyondSpan) offB = -offB;
 	if(!horzSpan) posB.x = posM.x;
 	if( horzSpan) posB.y = posM.y;
@@ -207,7 +232,6 @@ float3 FCAA(float2 posM) {
 	float spanLength = (dstP + dstN + off);
 	bool shortSpan = (spanLength / off) <= 5.0;
 	float pixelOffset = (-dst / spanLength) + 0.5;
-	goodSpan = goodSpan && pixelOffset > 0.0;
 	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB) == spanPropM);
 /*--------------------------------------------------------------------------*/
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;

@@ -1,9 +1,9 @@
 //
-//------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------
 // based on NVIDIA FXAA 3.11 by TIMOTHY LOTTES,
 // COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION.
 //
-//------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -16,11 +16,11 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-//------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------
 // based on LG Electronics AXAA by Jae-Ho Nah, Sunho Ki, Yeongkyu Lim, Jinhong Park, and Chulho Shin
 // for the rangeMid early-exit criterion ( see https://nahjaeho.github.io/papers/SIG2016/SIG2016_AXAA.pdf )
 //
-//------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------
 
 #include "ReShadeUI.fxh"
 #include "ReShade.fxh"
@@ -59,13 +59,7 @@ sampler2D LumaBuffer
 	MinFilter = Linear; MagFilter = Linear;
 };
 
-sampler2D BackBuffer
-{
-	Texture = ReShade::BackBufferTex;
-	MinFilter = Linear; MagFilter = Linear;
-};
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
@@ -236,7 +230,7 @@ float3 FCAA(float2 posM) {
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
 
-	return tex2Dlod(BackBuffer, float4(posM, 0, 0)).rgb;
+	return tex2Dlod(ReShade::BackBuffer, float4(posM, 0, 0)).rgb;
 }
 
 float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
@@ -244,15 +238,8 @@ float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 }
 
 float LumaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
-	float3 c = tex2Dlod(BackBuffer, float4(texcoord, 0, 0)).rgb;
+	float3 c = tex2Dlod(ReShade::BackBuffer, float4(texcoord, 0, 0)).rgb;
 	return dot(c, float3(0.299, 0.587, 0.114));
-}
-
-// Vertex shader generating a triangle covering the entire screen
-void PostProcessVS(in uint id : SV_VertexID, out float4 position : SV_Position, out float2 texcoord : TEXCOORD) {
-	texcoord.x = (id == 2) ? 2.0 : 0.0;
-	texcoord.y = (id == 1) ? 2.0 : 0.0;
-	position = float4(texcoord * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
 }
 
 technique FCAA <

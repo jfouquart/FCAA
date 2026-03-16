@@ -30,6 +30,11 @@ namespace FCAA {
 /*============================================================================
 		SETTINGS
 ============================================================================*/
+uniform float MidRangeAlpha < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0.0; ui_max = 0.5;
+	ui_label = "Alpha Value";
+	ui_tooltip = "The value added to the median between min/max luma.";
+> = 0.1;
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 0.5;
 	ui_label = "Edge Detection Threshold";
@@ -96,7 +101,7 @@ int SpanPropFromGrid(float3x3 luma3x3)
 /*--------------------------------------------------------------------------*/
 	float rangeMaxClamped = max(EdgeThresholdMin, rangeMaxScaled);
 	float rangeMid = 0.5 * (rangeMin + rangeMax);
-	float alpha = 0.1 * range;
+	float alpha = MidRangeAlpha * range;
 	bool midRangePix = abs(lumaM - rangeMid) <= alpha;
 	bool earlyExit = range < rangeMaxClamped;
 /*--------------------------------------------------------------------------*/

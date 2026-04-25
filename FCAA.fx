@@ -52,14 +52,12 @@ uniform int MaxSearchSteps  < __UNIFORM_SLIDER_INT1
 > = 16;
 
 // Samplers
-texture2D LumaTex<pooled = true;>
-{
+texture2D LumaTex<pooled = true;> {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
 	Format = R8;
 };
-sampler2D LumaBuffer
-{
+sampler2D LumaBuffer {
 	Texture = LumaTex;
 	MinFilter = Linear; MagFilter = Linear;
 };
@@ -69,8 +67,7 @@ sampler2D LumaBuffer
 #define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
 #define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
 
-float3x3 SampleLuma3x3(float2 posM)
-{
+float3x3 SampleLuma3x3(float2 posM) {
 	return float3x3(
 		texLumaOff(posM, int2(-1, -1)), // NW
 		texLumaOff(posM, int2( 0, -1)), // N
@@ -86,8 +83,9 @@ float3x3 SampleLuma3x3(float2 posM)
 	);
 }
 
-int SpanPropFromGrid(float3x3 luma3x3)
-{
+int SpanProp(float2 posM, out float3x3 luma3x3) {
+	luma3x3 = SampleLuma3x3(posM);
+
 	float lumaM = luma3x3[1][1];
 	float lumaN = luma3x3[0][1];
 	float lumaS = luma3x3[2][1];
@@ -132,16 +130,10 @@ int SpanPropFromGrid(float3x3 luma3x3)
 	return 1 + (edgeHorz < edgeVert);
 }
 
-int SpanProp(float2 posM) {
-	float3x3 luma3x3 = SampleLuma3x3(posM);
-	return SpanPropFromGrid(luma3x3);
-}
-
 float3 FCAA(float2 posM) {
-	float3x3 luma3x3 = SampleLuma3x3(posM);
-
+	float3x3 luma3x3;
+	int spanPropM = SpanProp(posM, luma3x3);
 	float lumaM = luma3x3[1][1];
-	int spanPropM = SpanPropFromGrid(luma3x3);
 /*--------------------------------------------------------------------------*/
 #if 0
 	#define _FCAA_LUMA(good) ((0.10 + (lumaM * 0.90)) * (good))
@@ -228,7 +220,7 @@ float3 FCAA(float2 posM) {
 /*--------------------------------------------------------------------------*/
 	float spanLength = (dstP + dstN + off);
 	bool shortSpan = (spanLength / off) <= 5.0;
-	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB) == spanPropM);
+	if(goodSpan && !shortSpan) goodSpan = (SpanProp(posB, luma3x3) == spanPropM);
 /*--------------------------------------------------------------------------*/
 	float pixelOffset = (-dst / spanLength) + 0.5;
 	float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;

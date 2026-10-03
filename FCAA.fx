@@ -51,21 +51,34 @@ uniform int MaxSearchSteps  < __UNIFORM_SLIDER_INT1
 	ui_tooltip = "Determines the maximum search radius for aliased edges.";
 > = 16;
 
-// Samplers
-texture2D LumaTex<pooled = true;> {
-	Width = BUFFER_WIDTH;
-	Height = BUFFER_HEIGHT;
-	Format = R8;
-};
-sampler2D LumaBuffer {
-	Texture = LumaTex;
-	MinFilter = Linear; MagFilter = Linear;
-};
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define texLuma(pos) tex2Dlod(LumaBuffer, float4(pos, 0, 0)).r
-#define texLumaOff(pos, off) tex2Dlod(LumaBuffer, float4(pos, 0, 0), off).r
+#define texLuma(pos) tex2Dlod(ReShade::BackBuffer, float4(pos, 0, 0)).r
+#define texLumaOff(pos, off) tex2Dlod(ReShade::BackBuffer, float4(pos, 0, 0), off).r
+
+float3 RGBToYCoCg(float3 rgb) {
+	static const float3x3 RGBToYCoCgConv = float3x3(
+		float3( 0.25, 0.50,  0.25),
+		float3( 0.50, 0.00, -0.50),
+		float3(-0.25, 0.50, -0.25)
+	);
+
+    float3 ycc = mul(RGBToYCoCgConv, rgb);
+	return mad(ycc, 0.50, 0.50);
+}
+
+
+float3 YCoCgToRGB(float3 ycc) {
+	static const float3x3 YCoCgToRGBConv = float3x3(
+		float3( 1.0,  1.0, -1.0),
+		float3( 1.0,  0.0,  1.0),
+		float3( 1.0, -1.0, -1.0)
+	);
+
+	ycc = mad(ycc, 2.0, -1.0);
+	return mul(YCoCgToRGBConv, ycc);
+}
+#define sample(pos) YCoCgToRGB(tex2Dlod(ReShade::BackBuffer, float4(pos, 0, 0)).rgb)
 
 float3x3 SampleLuma3x3(float2 posM) {
 	return float3x3(
@@ -141,7 +154,7 @@ float3 FCAA(float2 posM) {
 	else return float3(_FCAA_LUMA(spanPropM == 1), _FCAA_LUMA(spanPropM == 2), 0);
 #else
 	if (spanPropM == 0)
-		discard;
+		return sample(posM);
 #endif
 /*--------------------------------------------------------------------------*/
 	bool horzSpan = spanPropM == 1;
@@ -227,16 +240,16 @@ float3 FCAA(float2 posM) {
 	if(!horzSpan) posM.x += pixelOffsetGood * lengthSign;
 	if( horzSpan) posM.y += pixelOffsetGood * lengthSign;
 
-	return tex2Dlod(ReShade::BackBuffer, float4(posM, 0, 0)).rgb;
+	return sample(posM);
 }
 
 float3 FCAAPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	return FCAA(texcoord);
 }
 
-float LumaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
+float3 YCOCGPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target {
 	float3 c = tex2Dlod(ReShade::BackBuffer, float4(texcoord, 0, 0)).rgb;
-	return dot(c, float3(0.299, 0.587, 0.114));
+	return RGBToYCoCg(c);
 }
 
 technique FCAA <
@@ -253,8 +266,7 @@ technique FCAA <
 > {
 	pass {
 		VertexShader = PostProcessVS;
-		PixelShader = LumaPS;
-		RenderTarget = LumaTex;
+		PixelShader = YCOCGPS;
 	}
 	pass {
 		VertexShader = PostProcessVS;
